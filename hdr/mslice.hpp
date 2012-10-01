@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Consorzio Nazionale Interuniversitario 
+/* Copyright (c) 2012, University of Pisa - Consorzio Nazionale Interuniversitario 
  * per le Telecomunicazioni. 
  * All rights reserved.
  *
