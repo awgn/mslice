@@ -234,6 +234,16 @@ namespace mem {
         return std::get<type_index<T, Ts...>::value>(s.tuple_);
     }
 
+    // helper function for shared_ptr<slice<Ts...>>:
+    //
+
+    template <typename T, typename ...Ts>
+    inline auto get(std::shared_ptr<slice<Ts...>> &s) 
+    -> decltype(mem::get<T>(*s)) 
+    {
+        return mem::get<T>(*s);
+    }
+
     // recursive functions that calculate the total size of 
     // memory
     //
