@@ -357,6 +357,17 @@ namespace mem {
             return std::shared_ptr<slice_type>(manager_, p);
         }
 
+        template <typename T, typename ...Xs>
+        std::shared_ptr<T>
+        new_type(Xs && ... args)
+        {
+            if (manager_->size() == Ns)
+                manager_.reset(new slice_manager<Ns, Ts...>());
+
+            auto p = manager_->alloc(std::forward<Xs>(args)...);
+            return std::shared_ptr<T>(manager_, mem::get<T>(*p));
+        }
+
     private:
         std::shared_ptr<slice_manager<Ns, Ts...>> manager_;
     };
