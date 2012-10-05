@@ -109,10 +109,9 @@ namespace mem {
             typedef typename std::remove_pointer<
                 typename std::tuple_element<0, Tp>::type>::type current_type;
             auto ptr = (std::get<0>(t)+offset);
-            if (!std::has_trivial_default_constructor<current_type>::value)
-            {
-                new (ptr) current_type(std::forward<Ts>(args)...); // only the first type is constructed by passing arguments
-            }
+            
+            new (ptr) current_type(std::forward<Ts>(args)...); 
+            
             std::get<0>(r) = ptr;
         }
         template <size_t N, typename Tp, typename ...Ts>
@@ -122,10 +121,9 @@ namespace mem {
             typedef typename std::remove_pointer<
                 typename std::tuple_element<N, Tp>::type>::type current_type;
             auto ptr = (std::get<N>(t)+offset);
-            if (!std::has_trivial_default_constructor<current_type>::value)
-            {
-                new (ptr) current_type;
-            }
+            
+            new (ptr) current_type;
+            
             std::get<N>(r) = ptr;
             construct(r, t, offset, std::integral_constant<size_t, N-1>(), std::forward<Ts>(args)...);
         }
