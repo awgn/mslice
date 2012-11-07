@@ -291,12 +291,13 @@ namespace mem {
 
         ~slice_manager()
         {
+            details::destroy(layer_.tuple_, index_, std::integral_constant<size_t, sizeof...(Ts)-1>());
+
 #ifdef MSLICE_USE_MMAP
             munmap(mem_, sizeof_mem<M, Ts...>());
 #else
             free(mem_);
 #endif
-            details::destroy(layer_.tuple_, index_, std::integral_constant<size_t, sizeof...(Ts)-1>());
         }
 
         slice_manager(const slice_manager &) = delete;
