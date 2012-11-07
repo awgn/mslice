@@ -46,6 +46,29 @@
 
 namespace mem {
 
+    // seq trick for expanding tuples when calling 
+    // functions
+    //
+    
+    template<int ...>
+    struct seq { };
+
+    template<int N, int ...S>
+    struct gens : gens<N-1, N-1, S...> { };
+
+    template<int ...S>
+    struct gens<0, S...> {
+        typedef seq<S...> type;
+    };
+
+    // static empty helper structure
+    //
+    
+    namespace 
+    {
+        std::tuple<> none;
+    }
+
     // details...
     //
     
@@ -102,30 +125,37 @@ namespace mem {
             destroy(t, s, std::integral_constant<size_t, N-1>());
         }
 
-        template <typename Tp, typename ...Ts>
+        template <typename Tp, typename Tuple, int ... S>
         static inline
-        void construct(Tp &r, Tp const &t, size_t offset, std::integral_constant<size_t, 0>, Ts&& ...args) 
+        void construct(Tp &r, Tp const &t, size_t offset, std::integral_constant<size_t, 0>, Tuple && packs, seq<S...>) 
         {
             typedef typename std::remove_pointer<
                 typename std::tuple_element<0, Tp>::type>::type current_type;
             auto ptr = (std::get<0>(t)+offset);
             
-            new (ptr) current_type(std::forward<Ts>(args)...); 
+            new (ptr) current_type(std::get<S>(std::get<0>(packs))...); 
             
             std::get<0>(r) = ptr;
         }
-        template <size_t N, typename Tp, typename ...Ts>
+        template <size_t N, typename Tp, typename Tuple, int ... S>
         static inline
-        void construct(Tp &r, Tp const &t, size_t offset, std::integral_constant<size_t, N>, Ts&& ...args) 
+        void construct(Tp &r, Tp const &t, size_t offset, std::integral_constant<size_t, N>, Tuple && packs, seq<S...>) 
         {    
             typedef typename std::remove_pointer<
                 typename std::tuple_element<N, Tp>::type>::type current_type;
             auto ptr = (std::get<N>(t)+offset);
             
-            new (ptr) current_type;
+            new (ptr) current_type(std::get<S>(std::get<N>(packs))...);
             
             std::get<N>(r) = ptr;
-            construct(r, t, offset, std::integral_constant<size_t, N-1>(), std::forward<Ts>(args)...);
+            construct(r, t, offset, std::integral_constant<size_t, N-1>(), std::forward<Tuple>(packs), 
+                        typename gens<
+                            std::tuple_size<
+                                typename std::remove_reference<
+                                    typename std::tuple_element<N-1, Tuple>::type
+                                >::type
+                            >::value
+                        >::type());
         }
     
     } // namespace details
@@ -305,13 +335,24 @@ namespace mem {
 
         template <typename ...Xs>
         slice_type *
-        alloc(Xs && ...args) 
+        alloc(Xs && ...packs) 
         {
 #ifndef NDEBUG
             if (index_ == M)
                 throw std::runtime_error("slice_manager<Ts...>::alloc() overflow");
 #endif
-            details::construct(slice_[index_].tuple_, layer_.tuple_, index_, std::integral_constant<size_t, sizeof...(Ts)-1>(), std::forward<Xs>(args)...);
+            details::construct(slice_[index_].tuple_, layer_.tuple_, index_, std::integral_constant<size_t, sizeof...(Ts)-1>(), 
+                               std::forward_as_tuple(std::forward<Xs>(packs)...),
+                               typename gens< 
+                                    std::tuple_size<
+                                        typename std::remove_reference<
+                                            typename std::tuple_element<sizeof...(Ts)-1,
+                                                decltype(std::forward_as_tuple(std::forward<Xs>(packs)...))
+                                            >::type
+                                        >::type
+                                    >::value
+                                >::type());
+        
             return &slice_[index_++];
         }
 
@@ -347,23 +388,23 @@ namespace mem {
 
         template <typename ...Xs>
         std::shared_ptr<slice_type>
-        new_slice(Xs && ... args)
+        new_slice(Xs && ... packs)
         {
             if (manager_->size() == Ns)
                 manager_.reset(new slice_manager<Ns, Ts...>());
 
-            auto p = manager_->alloc(std::forward<Xs>(args)...);
+            auto p = manager_->alloc(std::forward<Xs>(packs)...);
             return std::shared_ptr<slice_type>(manager_, p);
         }
 
         template <typename T, typename ...Xs>
         std::shared_ptr<T>
-        new_type(Xs && ... args)
+        new_type(Xs && ... packs)
         {
             if (manager_->size() == Ns)
                 manager_.reset(new slice_manager<Ns, Ts...>());
 
-            auto p = manager_->alloc(std::forward<Xs>(args)...);
+            auto p = manager_->alloc(std::forward<Xs>(packs)...);
             return std::shared_ptr<T>(manager_, mem::get<T>(*p));
         }
 

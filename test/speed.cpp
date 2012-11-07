@@ -97,7 +97,7 @@ struct mslice_allocator
     std::shared_ptr<mem::slice<target_type>>
     operator()() 
     {
-        auto sp = alloc.new_slice();
+        auto sp = alloc.new_slice(mem::none);
         return std::move(sp);
     }
 
