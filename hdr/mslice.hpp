@@ -265,6 +265,13 @@ namespace mem {
     // helper function for shared_ptr<slice<Ts...>>:
     //
 
+    template <size_t N, typename ...Ts>
+    inline auto get(std::shared_ptr<slice<Ts...>> &s) 
+    -> decltype(mem::get<N>(*s)) 
+    {
+        return mem::get<N>(*s);
+    }
+
     template <typename T, typename ...Ts>
     inline auto get(std::shared_ptr<slice<Ts...>> &s) 
     -> decltype(mem::get<T>(*s)) 
