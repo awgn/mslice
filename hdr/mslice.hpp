@@ -104,11 +104,9 @@ namespace mem {
             typedef typename 
             std::remove_pointer<
                 typename std::tuple_element<0, Tp>::type>::type current_type;
-            if (!std::has_trivial_destructor<current_type>::value)
-            {
-                for(size_t i=0; i < s; i++)
-                    (std::get<0>(t)+i)->~current_type();
-            }
+            
+            for(size_t i=0; i < s; i++)
+                (std::get<0>(t)+i)->~current_type();
         }
         template <size_t N, typename Tp>
         static inline
@@ -117,11 +115,10 @@ namespace mem {
             typedef typename 
             std::remove_pointer<
                 typename std::tuple_element<N, Tp>::type>::type current_type;
-            if (!std::has_trivial_destructor<current_type>::value)
-            {
-                for(size_t i=0; i < s; i++)
-                    (std::get<N>(t)+i)->~current_type();
-            }
+            
+            for(size_t i=0; i < s; i++)
+                (std::get<N>(t)+i)->~current_type();
+            
             destroy(t, s, std::integral_constant<size_t, N-1>());
         }
 
