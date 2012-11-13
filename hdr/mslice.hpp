@@ -148,7 +148,7 @@ namespace mem {
             construct(r, t, offset, std::integral_constant<size_t, N-1>(), std::forward<Tuple>(packs), 
                         typename gens<
                             std::tuple_size<
-                                typename std::remove_reference<
+                                typename std::decay<
                                     typename std::tuple_element<N-1, Tuple>::type
                                 >::type
                             >::value
@@ -349,7 +349,7 @@ namespace mem {
                                std::forward_as_tuple(std::forward<Xs>(packs)...),
                                typename gens< 
                                     std::tuple_size<
-                                        typename std::remove_reference<
+                                        typename std::decay<
                                             typename std::tuple_element<sizeof...(Ts)-1,
                                                 decltype(std::forward_as_tuple(std::forward<Xs>(packs)...))
                                             >::type
