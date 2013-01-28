@@ -8,7 +8,7 @@ Paper
 
 This software is described in the paper:
 
-Nicola Bonelli, Loris Gazzarrini, Gregorio Procissi, Stefano Giordano, Brian Trammell: __"On Memory Allocation for High-Speed Packet Analysis Applications"__ IEEE ICC 2013 - Next-Generation Networking Symposium. 
+__"On Memory Allocation for High-Speed Packet Analysis Applications"__: Nicola Bonelli, Loris Gazzarrini, Gregorio Procissi, Stefano Giordano, Brian Trammell. IEEE ICC 2013 - Next-Generation Networking Symposium. 
 
 
 Author
