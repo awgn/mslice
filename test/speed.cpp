@@ -121,7 +121,7 @@ struct worker
 
         std::chrono::time_point<std::chrono::system_clock> last_tp;
 
-        auto S = (1<<22) - 1;
+        auto S = (1ULL<<22) - 1;
 
         Alloc allocator;
 
@@ -138,12 +138,12 @@ struct worker
 
             n++;
 
-            if ( !(n & S) )
+            if ( (n & S) == 0 )
             {
                 auto now = std::chrono::system_clock::now();
                 auto diff = now - last_tp;
 
-                counters[id].value = (n - last) * 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(diff).count(); 
+                counters[id].value = static_cast<int64_t>(n - last) * 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(diff).count(); 
 
                 last_tp = now;
                 last    = n;
@@ -161,9 +161,9 @@ main(int argc, char *argv[])
     if (argc < 4)
         throw std::runtime_error(std::string("usage: ").append(argv[0]).append(" mode #thread buff_len"));
 
-    const unsigned int mode    = atoi(argv[1]);
-    const unsigned int nthread = atoi(argv[2]);
-    const unsigned int buflen  = atoi(argv[3]);
+    const auto mode    = static_cast<unsigned int>(atoi(argv[1]));
+    const auto nthread = static_cast<unsigned int>(atoi(argv[2]));
+    const auto buflen  = static_cast<unsigned int>(atoi(argv[3]));
 
     for(unsigned int i = 0; i < nthread; i++)
     {
@@ -198,7 +198,7 @@ main(int argc, char *argv[])
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        unsigned long long t = 0;
+        long long t = 0;
         for(auto x : counters)
         {
             t += x.value;
