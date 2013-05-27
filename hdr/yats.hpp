@@ -43,6 +43,7 @@
 #include <map>
 #include <set>
 #include <random>
+#include <chrono>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
@@ -377,6 +378,7 @@ inline namespace yats
         std::cout << "  -c, --context context   Run tests from the given context.\n";
         std::cout << "  -v, --verbose           Verbose mode.\n";
         std::cout << "  -r, --run int           Number of run per Random test (1000 default).\n";
+        std::cout << "  -l, --list              Print the list of tests\n";
         std::cout << "  -h, --help              Print this help.\n";
 
         _Exit(EXIT_SUCCESS);
@@ -405,7 +407,20 @@ inline namespace yats
         format(out, std::forward<Ts>(args)...);
         return out.str();
     }
-
+    
+    ////////////////////////////////////////////// duration:
+   
+    template <typename Dur>
+    std::string duration_to_string(Dur d)
+    {
+        if (d < std::chrono::milliseconds(10))
+            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()) + " us";
+        if (d < std::chrono::seconds(10))
+            return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000.0) + " ms";
+        else
+            return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000000.0) + " s";
+    }
+  
     ////////////////////////////////////////////// run tests: 
    
     static int run(int argc = 0, char *argv[] = nullptr)
@@ -448,6 +463,24 @@ inline namespace yats
                     throw std::runtime_error("YATS: context missing");
                 repeat_run = atoi(*arg);
                 continue;
+            }
+
+            if (strcmp(*arg, "-l") == 0 ||
+                strcmp(*arg, "--list") == 0) {
+            
+                for(auto & c : context::instance()) 
+                {
+                    std::cout << "context " << c.first << ": ";
+                    int n = 1;
+                    for(auto & t : c.second->task_list_)
+                    {
+                        std::cout << t.second << ' ';
+                        if ((n++ & 7) == 0)
+                            std::cout << std::endl << "    ";
+                    }
+                    std::cout << std::endl;
+                }
+                _Exit(1);
             }
 
             run_test.insert(*arg);
@@ -496,9 +529,12 @@ inline namespace yats
                     continue;
 
                 if (verbose)
-                    std::cout << "+ running test " << t.second << "...\n";
+                    std::cout << "+ running '" << t.second << "'... " << std::flush;
                 
                 run++;
+
+                auto start = std::chrono::system_clock::now();
+
                 try
                 {    
                     // run the test here
@@ -521,6 +557,11 @@ inline namespace yats
                 
                 if (err && exit_immediatly)
                     _Exit(1);
+
+                if (verbose)
+                    std::cout << "[" << 
+                        duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
+
             }
             
             // run teardown:
@@ -622,7 +663,12 @@ inline namespace yats
 
     ////////////////////////////////////////////// pretty printer values: 
 
-
+    std::string inline pretty_value(bool v)
+    {
+        std::ostringstream o;
+        o << std::boolalpha << v; 
+        return o.str();
+    }
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
     pretty_value(const T &v)
@@ -775,12 +821,12 @@ inline namespace yats
                                 value); \
     }
 
-    YATS_FUNCTIONAL(greater);
-    YATS_FUNCTIONAL(greater_equal);
-    YATS_FUNCTIONAL(less);
-    YATS_FUNCTIONAL(less_equal);
-    YATS_FUNCTIONAL(equal_to);
-    YATS_FUNCTIONAL(not_equal_to);
+    YATS_FUNCTIONAL(greater)
+    YATS_FUNCTIONAL(greater_equal)
+    YATS_FUNCTIONAL(less)
+    YATS_FUNCTIONAL(less_equal)
+    YATS_FUNCTIONAL(equal_to)
+    YATS_FUNCTIONAL(not_equal_to)
 
     ////////////////////////////////////////////// boolean combinators: or, and, not... 
     
