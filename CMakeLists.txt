@@ -6,7 +6,7 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG -O3 -march=native -Wall -Wextr
 
 #add_definitions(-DMSLICE_USE_MMAP)
 
-add_executable(alloc-speed test/speed.cpp)
-add_executable(alloc-regrs test/regression.cpp)
+add_executable(test-speed test/speed.cpp)
+add_executable(test-regression test/regression.cpp)
 
-target_link_libraries(alloc-speed -pthread)
+target_link_libraries(test-speed -pthread)
