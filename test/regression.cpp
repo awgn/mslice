@@ -53,6 +53,27 @@ Context(mslice)
         Assert( *s4 == 4);
     }
 
+
+    struct object
+    {
+        object(int v = -1)
+        : value_(v)
+        {}
+
+        int value_;
+    };
+
+    Test(default_ctor)
+    {
+        mem::slice_allocator<object> alloc;
+
+        auto o1 = alloc.new_shared<object>();
+        auto o2 = alloc.new_shared<object>(42);
+
+        Assert(o1->value_ == -1);
+        Assert(o2->value_ == 42);
+    }
+
     Test(memanger_renewal)
     {
         mem::basic_slice_allocator<2, int> alloc;
