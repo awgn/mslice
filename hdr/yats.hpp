@@ -45,19 +45,21 @@
 #include <set>
 #include <random>
 #include <chrono>
+#include <csignal>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
 #endif
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-#define Assert(...)                     XPASTE(YATS_ASSERT_       ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__)
-#define AssertThrow(...)                XPASTE(YATS_ASSERT_THROW_ ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__)
-#define AssertNoThrow(value)            YATS_ASSERT_NOTHROW(value)
-#define StaticError(expr,msg)           XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
+#define Assert(...)             YATS_ASSERT(__VA_ARGS__)
+#define AssertNoThrow(...)      YATS_ASSERT_NOTHROW(__VA_ARGS__)
+#define AssertThrow(...)        YATS_ASSERT_THROW(__VA_ARGS__)
+#define AssertThrowAs(...)      YATS_ASSERT_THROW_AS(__VA_ARGS__)
+#define StaticError(expr,msg)   YATS_XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
 
 
 #define Context(ctx) \
@@ -84,26 +86,32 @@
 
 
 #define Random(name, ...) \
-    void random_ ## name(const char *, FOR_EACH(DIST_RES_TYPE,__VA_ARGS__)); \
-    yats::task_register rhook_ ## name(yats::extended_tag(), (yats::RandTask<decltype(RandomEngine), FOR_EACH(DIST_TYPE, __VA_ARGS__)>\
-                                                              (random_ ## name, RandomEngine, FOR_EACH(DIST_INSTANCE, __VA_ARGS__))), \
+    void random_ ## name(const char *, YATS_FOR_EACH(YATS_DIST_RES_TYPE,__VA_ARGS__)); \
+    yats::task_register rhook_ ## name(yats::extended_tag(), (yats::RandTask<decltype(RandomEngine), YATS_FOR_EACH(YATS_DIST_TYPE, __VA_ARGS__)>\
+                                                              (random_ ## name, RandomEngine, YATS_FOR_EACH(YATS_DIST_INSTANCE, __VA_ARGS__))), \
                                          yats::task_register::type::random, _context_name, #name); \
-    void random_ ## name(const char *_test_name __attribute__((unused)), FOR_EACH(DIST_RES_ARGT,__VA_ARGS__))
+    void random_ ## name(const char *_test_name __attribute__((unused)), YATS_FOR_EACH(YATS_DIST_RES_ARGT,__VA_ARGS__))
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define YATS_ASSERT(...)                yats::assert        (__FILE__, __LINE__, _context_name, _test_name, __VA_ARGS__)
+#define YATS_ASSERT_NOTHROW(...)        yats::assert_throw  (__FILE__, __LINE__, _context_name, _test_name, [&](){ __VA_ARGS__; }, nothing())
+#define YATS_ASSERT_THROW(...)          yats::assert_throw  (__FILE__, __LINE__, _context_name, _test_name, [&](){ __VA_ARGS__; }, anything())
+#define YATS_ASSERT_THROW_AS(e, ...)    yats::assert_throw  (__FILE__, __LINE__, _context_name, _test_name, [&](){ __VA_ARGS__; }, e)
 
 
 /* the so-called __VA_NARG__ (PP_NARG) macro from the thread at
    http://groups.google.com/group/comp.std.c/browse_frm/thread/77ee8c8f92e4a3fb
  */
 
-#ifndef PP_NARG
-#define PP_NARG(...) \
-         PP_NARG_(__VA_ARGS__,PP_RSEQ_N())
-#define PP_NARG_(...) \
-         PP_ARG_N(__VA_ARGS__)
-#define PP_ARG_N( \
+#define YATS_PP_NARG(...) \
+         YATS_PP_NARG_(__VA_ARGS__,YATS_PP_RSEQ_N())
+#define YATS_PP_NARG_(...) \
+         YATS_PP_ARG_N(__VA_ARGS__)
+#define YATS_PP_ARG_N( \
           _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \
          _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
          _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, \
@@ -112,7 +120,7 @@
          _51,_52,_53,_54,_55,_56,_57,_58,_59,_60, \
          _61,_62,_63,N,...) N
 
-#define PP_RSEQ_N() \
+#define YATS_PP_RSEQ_N() \
          63,62,61,60,                   \
          59,58,57,56,55,54,53,52,51,50, \
          49,48,47,46,45,44,43,42,41,40, \
@@ -120,42 +128,33 @@
          29,28,27,26,25,24,23,22,21,20, \
          19,18,17,16,15,14,13,12,11,10, \
          9,8,7,6,5,4,3,2,1,0
-#endif
 
-#ifndef PASTE
-#define PASTE(a,b)      a ## b
-#define XPASTE(a,b)     PASTE(a,b)
-#endif
+#define YATS_PASTE(a,b)         a ## b
+#define YATS_XPASTE(a,b)        YATS_PASTE(a,b)
 
-#define UNPACK_ARGS(...)    __VA_ARGS__
-#define UNPACK(x)           UNPACK_ARGS x
-#define APPLY(f, ...)       f(__VA_ARGS__)
+#define YATS_UNPACK_ARGS(...)   __VA_ARGS__
+#define YATS_UNPACK(x)          YATS_UNPACK_ARGS x
+#define YATS_APPLY(f, ...)      f(__VA_ARGS__)
 
-#define FOR_EACH_1(f, x)        APPLY(f,UNPACK(x))
-#define FOR_EACH_2(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_1(f, __VA_ARGS__)
-#define FOR_EACH_3(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_2(f, __VA_ARGS__)
-#define FOR_EACH_4(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_3(f, __VA_ARGS__)
-#define FOR_EACH_5(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_4(f, __VA_ARGS__)
-#define FOR_EACH_6(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_5(f, __VA_ARGS__)
-#define FOR_EACH_7(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_6(f, __VA_ARGS__)
-#define FOR_EACH_8(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_7(f, __VA_ARGS__)
-#define FOR_EACH_9(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_8(f, __VA_ARGS__)
-#define FOR_EACH_10(f, x, ...)  APPLY(f,UNPACK(x)) , FOR_EACH_9(f, __VA_ARGS__)
-#define FOR_EACH(f, ...)        XPASTE(FOR_EACH_, PP_NARG(__VA_ARGS__))(f, __VA_ARGS__)
+#define YATS_FOR_EACH_1(f, x)        YATS_APPLY(f,YATS_UNPACK(x))
+#define YATS_FOR_EACH_2(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_1(f, __VA_ARGS__)
+#define YATS_FOR_EACH_3(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_2(f, __VA_ARGS__)
+#define YATS_FOR_EACH_4(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_3(f, __VA_ARGS__)
+#define YATS_FOR_EACH_5(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_4(f, __VA_ARGS__)
+#define YATS_FOR_EACH_6(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_5(f, __VA_ARGS__)
+#define YATS_FOR_EACH_7(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_6(f, __VA_ARGS__)
+#define YATS_FOR_EACH_8(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_7(f, __VA_ARGS__)
+#define YATS_FOR_EACH_9(f, x, ...)   YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_8(f, __VA_ARGS__)
+#define YATS_FOR_EACH_10(f, x, ...)  YATS_APPLY(f,YATS_UNPACK(x)) , YATS_FOR_EACH_9(f, __VA_ARGS__)
+#define YATS_FOR_EACH(f, ...)        YATS_XPASTE(YATS_FOR_EACH_, YATS_PP_NARG(__VA_ARGS__))(f, __VA_ARGS__)
 
-#define DIST_TYPE(dist, name, ...)        dist
-#define DIST_ARG_NAME(dist, name, ...)    name
-#define DIST_RES_TYPE(dist, name, ...)    dist::result_type
-#define DIST_RES_ARGT(dist, name, ...)    dist::result_type name
-#define DIST_INSTANCE(dist, name, ...)    dist(__VA_ARGS__)
+#define YATS_DIST_TYPE(dist, name, ...)        dist
+#define YATS_DIST_ARG_NAME(dist, name, ...)    name
+#define YATS_DIST_RES_TYPE(dist, name, ...)    dist::result_type
+#define YATS_DIST_RES_ARGT(dist, name, ...)    dist::result_type name
+#define YATS_DIST_INSTANCE(dist, name, ...)    dist(__VA_ARGS__)
 
 #define YATS_HEADER(ctx,test,file,line) file, ':', line, ": *** ", ctx, "::", test, ":\n"
-
-#define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),  _context_name, _test_name, __FILE__, __LINE__)
-#define YATS_ASSERT_2(value,pred)       yats::assert_predicate(value, pred,       _context_name, _test_name, __FILE__, __LINE__)
-#define YATS_ASSERT_NOTHROW(expr)       yats::assert_throw(nothing(), [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
-#define YATS_ASSERT_THROW_1(expr)       yats::assert_throw(anything(),[&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
-#define YATS_ASSERT_THROW_2(expr,obj)   yats::assert_throw(obj,       [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
 
 #define YATS_STATIC_ERROR_CLASS(expr, msg) \
     struct static_error {\
@@ -219,12 +218,8 @@
 #endif
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-inline namespace yats
+namespace yats
 {
-    using namespace std::placeholders;
 
     ////////////////////////////////////////////// C++ yats exception:
 
@@ -250,7 +245,7 @@ inline namespace yats
         }
     };
 
-    std::string
+    inline std::string
     type_name(nothing)
     {
         return "no";
@@ -264,15 +259,16 @@ inline namespace yats
         }
     };
 
-    std::string
+    inline std::string
     type_name(anything)
     {
         return "any";
     }
 
+
     ////////////////////////////////////////////// C++ demangling tool:
 
-    static inline std::string
+    inline std::string
     cxa_demangle(const char *name)
     {
         int status;
@@ -283,11 +279,12 @@ inline namespace yats
     }
 
     template <typename Tp>
-    std::string
+    inline std::string
     type_name(const Tp &t)
     {
         return cxa_demangle(typeid(t).name());
     }
+
 
     ////////////////////////////////////////////// seq and gens metafunction:
 
@@ -373,6 +370,7 @@ inline namespace yats
         context& operator=(context const &) = delete;
     };
 
+
     ////////////////////////////////////////////// usage:
 
     static void usage(const char *name)
@@ -382,6 +380,7 @@ inline namespace yats
         std::cout << "  -e, --exit-immediately  On error exit.\n";
         std::cout << "  -c, --context context   Run tests from the given context.\n";
         std::cout << "  -v, --verbose           Verbose mode.\n";
+        std::cout << "  -s, --signal            Capture unix signals.\n";
         std::cout << "  -r, --run int           Number of run per Random test (1000 default).\n";
         std::cout << "  -l, --list              Print the list of tests\n";
         std::cout << "  -h, --help              Print this help.\n";
@@ -389,18 +388,18 @@ inline namespace yats
         _Exit(EXIT_SUCCESS);
     }
 
-    ////////////////////////////////////////////// format error:
+
+    ////////////////////////////////////////////// print:
 
     template <typename CharT, typename Traits, typename T>
-    void format(std::basic_ostream<CharT,Traits> &out, T &&arg)
+    void print(std::basic_ostream<CharT,Traits> &out, T &&arg)
     {
         out << std::forward<T>(arg);
     }
     template <typename CharT, typename Traits, typename T, typename ...Ti>
-    void format(std::basic_ostream<CharT, Traits> &out, T &&arg, Ti&&... args)
+    void print(std::basic_ostream<CharT, Traits> &out, T &&arg, Ti&&... args)
     {
-        out << arg;
-        format(out, std::forward<Ti>(args)...);
+        out << arg; print(out, std::forward<Ti>(args)...);
     }
 
     template <typename ...Ts>
@@ -409,9 +408,10 @@ inline namespace yats
     {
         std::ostringstream out;
         out << std::boolalpha;
-        format(out, std::forward<Ts>(args)...);
+        print(out, std::forward<Ts>(args)...);
         return out.str();
     }
+
 
     ////////////////////////////////////////////// duration:
 
@@ -426,23 +426,106 @@ inline namespace yats
             return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000000.0) + " s";
     }
 
+
+    ////////////////////////////////////////////// singleton:
+
+    struct singleton
+    {
+        static uint32_t &
+        assert_counter()
+        {
+            static uint32_t c;
+            return c;
+        }
+
+        static const std::string &
+        program_name(std::string n = "")
+        {
+            static std::string name(n);
+            return name;
+        }
+
+        static const std::map<int, std::string> &
+        unix_signal_map()
+        {
+            static std::map<int, std::string> m = []() {
+                std::map<std::string, std::vector<int>> reverse
+                    = {{"SIGHUP"  ,  {     1     }},
+                       {"SIGINT"  ,  {     2     }},
+                       {"SIGQUIT" ,  {     3     }},
+                       {"SIGILL"  ,  {     4     }},
+                       {"SIGABRT" ,  {     6     }},
+                       {"SIGFPE"  ,  {     8     }},
+                       {"SIGKILL" ,  {     9     }},
+                       {"SIGSEGV" ,  {    11     }},
+                       {"SIGPIPE" ,  {    13     }},
+                       {"SIGALRM" ,  {    14     }},
+                       {"SIGTERM" ,  {    15     }},
+                       {"SIGUSR1" ,  { 30,10,16  }},
+                       {"SIGUSR2" ,  { 31,12,17  }},
+                       {"SIGCHLD" ,  { 20,17,18  }},
+                       {"SIGCONT" ,  { 19,18,25  }},
+                       {"SIGSTOP" ,  { 17,19,23  }},
+                       {"SIGTSTP" ,  { 18,20,24  }},
+                       {"SIGTTIN" ,  { 21,21,26  }},
+                       {"SIGTTOU" ,  { 22,22,27  }},
+                       {"SIGBUS"  ,  { 10,7,10   }},
+                       {"SIGPROF" ,  { 27,27,29  }},
+                       {"SIGSYS"  ,  { 12,31,12  }},
+                       {"SIGTRAP" ,  {    5      }},
+                       {"SIGURG"  ,  { 16,23,21  }},
+                       {"SIGVTALRM", { 26,26,28  }},
+                       {"SIGXCPU" ,  { 24,24,30  }},
+                       {"SIGXFSZ" ,  { 25,25,31  }}};
+
+                std::map<int, std::string> sigmap;
+
+                for (auto const & sig : reverse)
+                {
+                    for(auto const &signum : sig.second)
+                    {
+                        sigmap.insert(std::make_pair(signum, sig.first));
+                    }
+                }
+
+                return sigmap;
+            }();
+
+            return m;
+        }
+
+        static std::string
+        unix_signal(int n)
+        {
+            auto it = unix_signal_map().find(n);
+            if (it != std::end(unix_signal_map())) {
+                return it->second;
+            }
+            return std::string("SIGNUM ") + std::to_string(n);
+        }
+    };
+
+
     ////////////////////////////////////////////// run tests:
 
-    uint32_t &
-    assert_counter()
+    static void sig_handler(int n)
     {
-        static uint32_t c;
-        return c;
+        std::ofstream ferr("/tmp/" + singleton::program_name(), std::fstream::app);
+        ferr << singleton::unix_signal(n) << std::endl;
+        _Exit (-n);
     }
 
     static int run(int argc = 0, char *argv[] = nullptr)
     {
         bool exit_immediatly = false,
              err             = false,
-             verbose         = false;
+             verbose         = false,
+             capture_signal  = false;
         int  repeat_run      = 1000;
 
         std::set<std::string> run_ctx, run_test;
+
+        singleton::program_name(argv[0]);
 
         for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
@@ -455,6 +538,12 @@ inline namespace yats
             if (strcmp(*arg, "-e") == 0 ||
                 strcmp(*arg, "--exit-immediately") == 0) {
                 exit_immediatly = true;
+                continue;
+            }
+
+            if (strcmp(*arg, "-s") == 0 ||
+                strcmp(*arg, "--signal") == 0) {
+                capture_signal = true;
                 continue;
             }
 
@@ -501,6 +590,13 @@ inline namespace yats
             run_test.insert(*arg);
         }
 
+        std::cout << "YATS: verbose " << std::boolalpha << verbose << ", UNIX signals " << capture_signal << std::endl;
+
+        if (capture_signal) {
+            for(int n = 0; n < 64; n++)
+                signal(n,  sig_handler);
+        }
+
         size_t tot_ctx = 0, tot_task = 0;
 
         for(auto & ctx : context::instance())
@@ -513,19 +609,20 @@ inline namespace yats
 
                         if (run_test.empty())
                             return ctx.second->task_list_.size();
-
-                        else return std::count_if (std::begin(ctx.second->task_list_),
+                        else
+                            return static_cast<size_t>(
+                                std::count_if (std::begin(ctx.second->task_list_),
                                        std::end(ctx.second->task_list_),
                                        [&] (std::pair<context::Task,std::string> const &elem) -> bool {
 
                                             return std::find(std::begin(run_test), std::end(run_test), elem.second) != std::end(run_test);
-                                       });
+                                       }));
                         }();
         }
 
         unsigned int run = 0, ok = 0;
 
-        std::ofstream ferr("/tmp/" + std::string(argv[0]));
+        std::ofstream ferr("/tmp/" + singleton::program_name());
 
         std::cout << "Loading " << tot_task << " tests in " << tot_ctx << " contexts." << std::endl;
 
@@ -567,7 +664,7 @@ inline namespace yats
                 try
                 {
                     // run the test here
-
+                    //
                     t.first.operator()(repeat_run);
                     ok++;
                 }
@@ -579,19 +676,18 @@ inline namespace yats
                 }
                 catch(std::exception &e)
                 {
-                    std::ostringstream msg;
                     err = true;
-                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
-                    std::cerr << msg.str();
-                    ferr      << msg.str();
+                    auto msg = make_string("test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    std::cerr << msg;
+                    ferr      << msg;
                 }
                 catch(...)
                 {
-                    std::ostringstream msg;
                     err = true;
-                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unknown exception.\n");
-                    std::cerr << msg.str();
-                    ferr      << msg.str();
+
+                    auto msg = make_string("test ", c.first, "::" , t.second , ":\n", "    -> Unknown exception.\n");
+                    std::cerr << msg;
+                    ferr      << msg;
                 }
 
                 if (err && exit_immediatly)
@@ -609,9 +705,10 @@ inline namespace yats
             {
                 t(0);
             }
+
         }
 
-        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << assert_counter() << " assertions passed." << std::endl;
+        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << singleton::assert_counter() << " assertions passed." << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
@@ -664,7 +761,7 @@ inline namespace yats
             switch(t)
             {
             case type::random:
-                it->second->task_list_.push_back(std::make_pair(std::bind(fun, name, _1), name));
+                it->second->task_list_.push_back(std::make_pair(std::bind(fun, name, std::placeholders::_1), name));
                 break;
             default:
                 throw std::logic_error("yats");
@@ -674,7 +771,7 @@ inline namespace yats
 
 
     ////////////////////////////////////////////// magic sfinae:
-    // ...for use in has_insertion_operator
+    // ...for has_insertion_operator
 
     struct __sfinae_types
     {
@@ -703,7 +800,7 @@ inline namespace yats
 
     ////////////////////////////////////////////// pretty printer values:
 
-    std::string inline pretty_value(bool v)
+    static inline std::string pretty(bool v)
     {
         std::ostringstream o;
         o << std::boolalpha << v;
@@ -711,7 +808,7 @@ inline namespace yats
     }
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
-    pretty_value(const T &v)
+    pretty(const T &v)
     {
         std::ostringstream o;
         o << std::boolalpha << v;
@@ -722,7 +819,7 @@ inline namespace yats
     template <typename T>
     typename std::enable_if<!std::is_integral<T>::value &&
                             has_insertion_operator<T>::value, std::string>::type
-    pretty_value(const T &v)
+    pretty(const T &v)
     {
         std::ostringstream o;
         o << v;
@@ -731,7 +828,7 @@ inline namespace yats
     template <typename T>
     typename std::enable_if<!std::is_integral<T>::value &&
                             !has_insertion_operator<T>::value, std::string>::type
-    pretty_value(const T &)
+    pretty(const T &)
     {
         return "()";
     }
@@ -772,7 +869,7 @@ inline namespace yats
         str() const
         {
             if (arg_)
-                return name_ + std::string("(") + pretty_value(*arg_) + std::string(")");
+                return name_ + std::string("(") + pretty(*arg_) + std::string(")");
             else
                 return name_ + "()";
         }
@@ -861,7 +958,7 @@ inline namespace yats
     {                        \
         return predicate<T>("is_" #_name_,  \
                             std::function<bool(const T&)>( \
-                                std::bind(std::_name_<T>(), _1, value)), \
+                                std::bind(std::_name_<T>(), std::placeholders::_1, value)), \
                                 value); \
     }
 
@@ -920,7 +1017,7 @@ inline namespace yats
     {
         return predicate<bool>( "is_boolean",
                                 std::function<bool(bool)>(
-                                    std::bind(std::equal_to<bool>(), _1, true)), true);
+                                    std::bind(std::equal_to<bool>(), std::placeholders::_1, true)), true);
     }
 
     inline predicate<bool>
@@ -928,7 +1025,7 @@ inline namespace yats
     {
         return predicate<bool>( "is_boolean",
                                 std::function<bool(bool)>(
-                                    std::bind(std::equal_to<bool>(), _1, false)), false);
+                                    std::bind(std::equal_to<bool>(), std::placeholders::_1, false)), false);
     }
 
     ////////////////////////////////////////////// predicate factory:
@@ -943,26 +1040,32 @@ inline namespace yats
 
     ////////////////////////////////////////////// YATS assertions:
 
-    template <typename T1, typename P>
-    void assert_predicate(const T1 &value, const P &pred, const char *ctx, const char *name, const char *file, int line)
+    template <typename T, typename P>
+    void assert(const char *file, int line, const char *ctx, const char *test, const T &value, P pred)
     {
         if (!pred(value))
         {
-            throw yats_error(make_string(YATS_HEADER(ctx, name, file, line),
-                             "    -> predicate ", pred.str(), " failed: got ", pretty_value(value)));
+            throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
+                             "    -> predicate ", pred.str(), " failed: got ", pretty(value)));
         }
 
-        assert_counter()++;
+        singleton::assert_counter()++;
+    }
+
+    static inline
+    void assert(const char *file, int line, const char *ctx, const char *test, bool value)
+    {
+        return assert(file, line, ctx, test, value, is_true());
     }
 
     template <typename T, typename E>
-    void assert_throw(T const &obj, E expr, const char *ctx, const char *test, const char *file, int line)
+    void assert_throw(const char *file, int line, const char *ctx, const char *test, T const & expr, E const &obj)
     {
         try
         {
             expr();
         }
-        catch(T &e)
+        catch(E &e)
         {
             if (std::string(e.what()).compare(obj.what()))
                 throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
@@ -970,36 +1073,37 @@ inline namespace yats
                                              " exception caught with reason \"",
                                              e.what(),
                                              "\" != \"", obj.what(), "\"!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
         catch(std::exception &e)
         {
-            if (!std::is_same<T,anything>::value)
+            if (!std::is_same<E,anything>::value)
                 throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
                                             "    -> ", yats::type_name(obj),
                                             " exception expected. Got ",
                                             yats::type_name(e),
                                             " (\"", e.what(), "\")!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
         catch(...)
         {
-            if (!std::is_same<T,anything>::value)
+            if (!std::is_same<E,anything>::value)
                 throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
                                             "    -> ", yats::type_name(obj),
                                             " exception expected: got unknown exception!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
 
-        if (!std::is_same<T, nothing>::value)
+        if (!std::is_same<E, nothing>::value)
             throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
                                         "    -> ", yats::type_name(obj),
                                         " exception expected!"));
 
-        assert_counter()++;
+        singleton::assert_counter()++;
+
     }
 
 }
