@@ -395,25 +395,28 @@ namespace mem {
         std::shared_ptr<slice_type>
         new_slice(Xs && ... packs)
         {
-            if (manager_->size() == Ns)
-                manager_.reset(new slice_manager<Ns, Ts...>());
-
+            reset_manager();
             auto p = manager_->alloc(std::forward<Xs>(packs)...);
             return std::shared_ptr<slice_type>(manager_, p);
         }
 
         template <typename T, typename ...Xs>
         std::shared_ptr<T>
-        new_shared(Xs && ... packs)
+        new_shared(Xs && ... args)
         {
-            if (manager_->size() == Ns)
-                manager_.reset(new slice_manager<Ns, Ts...>());
-
-            auto p = manager_->alloc(std::forward<Xs>(packs)...);
+            reset_manager();
+            auto p = manager_->alloc(std::forward_as_tuple(std::forward<Xs>(args)...));
             return std::shared_ptr<T>(manager_, mem::get<T>(*p));
         }
 
     private:
+
+        void reset_manager()
+        {
+            if (manager_->size() == Ns)
+                manager_.reset(new slice_manager<Ns, Ts...>());
+        }
+
         std::shared_ptr<slice_manager<Ns, Ts...>> manager_;
     };
 
